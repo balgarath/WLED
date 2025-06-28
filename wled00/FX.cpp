@@ -461,19 +461,62 @@ static const char _data_FX_MODE_DUAL_SCAN[] PROGMEM = "Scan Dual@!,# of dots,,,,
 /*
  * Cycles all LEDs at once through a rainbow.
  */
+// uint16_t mode_rainbow(void) {
+//   unsigned counter = (strip.now * ((SEGMENT.speed >> 2) +2)) & 0xFFFF;
+//   counter = counter >> 8;
+
+//   if (SEGMENT.intensity < 128){
+//     SEGMENT.fill(color_blend(SEGMENT.color_wheel(counter),WHITE,uint8_t(128-SEGMENT.intensity)));
+//   } else {
+//     SEGMENT.fill(SEGMENT.color_wheel(counter));
+//   }
+
+//   return FRAMETIME;
+// }
+// static const char _data_FX_MODE_RAINBOW[] PROGMEM = "Colorloop@!,Saturation;;!;01";
+
+
+/*    ****************CUSTOM************* */
+/*
+ * Cycles all LEDs through the selected palette,
+ * and pulses brightness up and down.
+ */
+
 uint16_t mode_rainbow(void) {
-  unsigned counter = (strip.now * ((SEGMENT.speed >> 2) +2)) & 0xFFFF;
-  counter = counter >> 8;
+  // Calculate the counter to cycle through the palette
+  unsigned counter = (strip.now * ((SEGMENT.speed >> 2) + 2)) & 0xFFFF;
+  counter = counter >> 8; // reduce to 0–255
 
-  if (SEGMENT.intensity < 128){
-    SEGMENT.fill(color_blend(SEGMENT.color_wheel(counter),WHITE,uint8_t(128-SEGMENT.intensity)));
-  } else {
-    SEGMENT.fill(SEGMENT.color_wheel(counter));
-  }
+  
+  float bpm = SEGMENT.intensity; // Pulse speed slider
+  uint8_t pulseMin = SEGMENT.custom1;
+  uint8_t pulseMax = SEGMENT.custom2;
 
+  // --- PULSE: make a smooth up/down wave using beatsin16() ---
+  uint16_t pulse16 = beatsin16(bpm + 1, pulseMin << 8, pulseMax << 8);
+  uint8_t pulse = pulse16 >> 8; // convert 0-65535 to 0-255
+
+  // Get a color from the current palette
+  uint32_t color = SEGMENT.color_wheel(counter);
+
+  // Scale color by blending with black to dim it by the pulse factor
+  // Higher pulse = brighter, lower pulse = darker
+  color = color_blend(BLACK, color, pulse);
+
+  Serial.printf("color_blend = %d \n", color);
+
+  // Fill the whole segment with this color
+  SEGMENT.fill(color);
+
+  // Run this effect again after the default frame time
   return FRAMETIME;
 }
-static const char _data_FX_MODE_RAINBOW[] PROGMEM = "Colorloop@!,Saturation;;!;01";
+
+static const char _data_FX_MODE_RAINBOW[] PROGMEM = "Pulse Palette@!,Pulse Speed,Pulse Min,Pulse Max;;P;01";
+
+
+
+/*    ****************END CUSTOM************* */
 
 
 /*
